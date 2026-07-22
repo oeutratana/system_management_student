@@ -11,7 +11,7 @@ class UserController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(User::with('classes')->latest()->paginate());
+        return response()->json(User::with('classes')->latest()->get());
     }
 
     public function store(Request $request): JsonResponse
@@ -19,7 +19,7 @@ class UserController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8'],
+            'password' => ['required', 'string', 'min:6'],
             'role' => ['required', Rule::in(['admin', 'teacher'])],
         ]);
 
@@ -38,7 +38,7 @@ class UserController extends Controller
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user)],
-            'password' => ['sometimes', 'required', 'string', 'min:8'],
+            'password' => ['sometimes', 'required', 'string', 'min:6'],
             'role' => ['sometimes', 'required', Rule::in(['admin', 'teacher'])],
         ]);
 

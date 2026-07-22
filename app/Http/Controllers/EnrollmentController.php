@@ -11,11 +11,13 @@ class EnrollmentController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(Enrollment::with(['student', 'course', 'grade'])->latest()->paginate());
+        return response()->json(Enrollment::with(['student', 'course', 'grade'])->latest()->get());
     }
 
     public function store(Request $request): JsonResponse
     {
+        $this->prepareEnrollmentData($request);
+
         $data = $request->validate([
             'student_id' => ['required', 'exists:students,id'],
             'course_id' => ['required', 'exists:courses,id'],
@@ -34,6 +36,8 @@ class EnrollmentController extends Controller
 
     public function update(Request $request, Enrollment $enrollment): JsonResponse
     {
+        $this->prepareEnrollmentData($request);
+
         $data = $request->validate([
             'student_id' => ['sometimes', 'required', 'exists:students,id'],
             'course_id' => ['sometimes', 'required', 'exists:courses,id'],
@@ -52,5 +56,14 @@ class EnrollmentController extends Controller
         $enrollment->delete();
 
         return response()->json(null, 204);
+    }
+
+    private function prepareEnrollmentData(Request $request): void
+    {
+        if (! $request->has('status')) {
+            $request->merge([
+                'status' => 'Active',
+            ]);
+        }
     }
 }

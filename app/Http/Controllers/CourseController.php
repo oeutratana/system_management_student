@@ -11,7 +11,7 @@ class CourseController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(Course::with(['department', 'enrollments'])->latest()->paginate());
+        return response()->json(Course::with(['department', 'enrollments'])->latest()->get());
     }
 
     public function store(Request $request): JsonResponse

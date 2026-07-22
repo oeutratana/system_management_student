@@ -10,7 +10,7 @@ class GradeController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(Grade::with('enrollment.student', 'enrollment.course')->latest()->paginate());
+        return response()->json(Grade::with('enrollment.student', 'enrollment.course')->latest()->get());
     }
 
     public function store(Request $request): JsonResponse

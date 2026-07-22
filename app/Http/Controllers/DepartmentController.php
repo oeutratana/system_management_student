@@ -10,7 +10,7 @@ class DepartmentController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(Department::with(['classes', 'courses'])->latest()->paginate());
+        return response()->json(Department::with(['classes', 'courses'])->latest()->get());
     }
 
     public function store(Request $request): JsonResponse

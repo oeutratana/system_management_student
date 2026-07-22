@@ -3,6 +3,10 @@
 namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -44,5 +48,39 @@ class Handler extends ExceptionHandler
         $this->reportable(function (Throwable $e) {
             //
         });
+    }
+
+    public function render($request, Throwable $e)
+    {
+        if ($request instanceof Request && $request->is('api/*')) {
+            return $this->renderApiException($e);
+        }
+
+        return parent::render($request, $e);
+    }
+
+    private function renderApiException(Throwable $e): JsonResponse
+    {
+        if ($e instanceof AuthenticationException) {
+            return response()->json([
+                'message' => 'Unauthenticated.',
+            ], 401);
+        }
+
+        if ($e instanceof ValidationException) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'errors' => $e->errors(),
+            ], $e->status);
+        }
+
+        $response = parent::render(request(), $e);
+        $status = $response->getStatusCode();
+
+        return response()->json([
+            'message' => $status >= 500 && ! config('app.debug')
+                ? 'Server Error'
+                : $e->getMessage(),
+        ], $status);
     }
 }

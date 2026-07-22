@@ -11,11 +11,22 @@ class StudentController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(Student::with(['class', 'enrollments.course', 'enrollments.grade'])->latest()->paginate());
+        return response()->json(Student::with(['class', 'enrollments.course', 'enrollments.grade'])->latest()->get());
+    }
+
+    public function indexOrStore(Request $request): JsonResponse
+    {
+        if ($request->has('student_code')) {
+            return $this->store($request);
+        }
+
+        return $this->index();
     }
 
     public function store(Request $request): JsonResponse
     {
+        $this->prepareDateOfBirth($request);
+
         $data = $request->validate([
             'class_id' => ['required', 'exists:classes,id'],
             'student_code' => ['required', 'string', 'max:255', 'unique:students,student_code'],
@@ -39,6 +50,8 @@ class StudentController extends Controller
 
     public function update(Request $request, Student $student): JsonResponse
     {
+        $this->prepareDateOfBirth($request);
+
         $data = $request->validate([
             'class_id' => ['sometimes', 'required', 'exists:classes,id'],
             'student_code' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('students', 'student_code')->ignore($student)],
@@ -62,5 +75,14 @@ class StudentController extends Controller
         $student->delete();
 
         return response()->json(null, 204);
+    }
+
+    private function prepareDateOfBirth(Request $request): void
+    {
+        if (! $request->has('dob') && $request->has('date_of_birth')) {
+            $request->merge([
+                'dob' => $request->input('date_of_birth'),
+            ]);
+        }
     }
 }
