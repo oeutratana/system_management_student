@@ -37,4 +37,24 @@ class Student extends Model
     {
         return $this->hasMany(Enrollment::class);
     }
+
+    public function guardians(): HasMany
+    {
+        return $this->hasMany(Guardian::class, 'student_id');
+    }
+
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
+    public function fees(): HasMany
+    {
+        return $this->hasMany(Fee::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
 }

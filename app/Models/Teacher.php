@@ -5,18 +5,27 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Course extends Model
+class Teacher extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'department_id',
-        'course_code',
-        'course_name',
-        'credit',
-        'description',
+        'user_id',
+        'teacher_code',
+        'first_name',
+        'last_name',
+        'gender',
+        'dob',
+        'phone',
+        'email',
+        'address',
+        'image',
+    ];
+
+    protected $casts = [
+        'dob' => 'date',
     ];
 
     public function department(): BelongsTo
@@ -24,13 +33,8 @@ class Course extends Model
         return $this->belongsTo(Department::class);
     }
 
-    public function enrollments(): HasMany
+    public function user(): BelongsTo
     {
-        return $this->hasMany(Enrollment::class);
-    }
-
-    public function exams(): HasMany
-    {
-        return $this->hasMany(Exam::class);
+        return $this->belongsTo(User::class);
     }
 }
