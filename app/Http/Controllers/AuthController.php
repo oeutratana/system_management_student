@@ -7,7 +7,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -17,16 +16,15 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:6'],
-            'role' => ['sometimes', Rule::in(['admin', 'teacher'])],
+            'role' => ['sometimes', Rule::in(['admin', 'teacher', 'student'])],
         ]);
 
-        $data['role'] ??= 'teacher';
+        $data['role'] ??= 'student';
 
         $user = User::create($data);
 
         return response()->json([
             'user' => $user,
-            'token' => $user->createToken('api-token')->plainTextToken,
         ], 201);
     }
 
@@ -40,20 +38,47 @@ class AuthController extends Controller
         $user = User::where('email', $data['email'])->first();
 
         if (! $user || ! Hash::check($data['password'], $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
-            ]);
+            return response()->json([
+                'message' => 'The provided credentials are incorrect.',
+            ], 401);
         }
 
         return response()->json([
-            'user' => $user,
+            'message' => 'Login successful',
+            'user' => $this->userPayload($user),
             'token' => $user->createToken('api-token')->plainTextToken,
         ]);
     }
 
     public function me(Request $request): JsonResponse
     {
-        return response()->json($request->user());
+        $user = $request->user();
+
+        if ($user->isTeacher()) {
+            $user->load('teacherProfile.department');
+        }
+
+        if ($user->isStudent()) {
+            $user->load('studentProfile.class');
+        }
+
+        return response()->json($this->userPayload($user));
+    }
+
+    /**
+     * A serializable representation of the authenticated user that includes
+     * the role name and its permissions, but never the password.
+     */
+    private function userPayload(User $user): array
+    {
+        $payload = $user->toArray();
+
+        $payload['permissions'] = $user->permissions()
+            ->orderBy('permissions.name')
+            ->pluck('name')
+            ->values();
+
+        return $payload;
     }
 
     public function logout(Request $request): JsonResponse

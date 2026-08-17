@@ -20,7 +20,7 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:6'],
-            'role' => ['required', Rule::in(['admin', 'teacher'])],
+            'role' => ['required', Rule::in(['admin', 'teacher', 'student'])],
         ]);
 
         $user = User::create($data);
@@ -39,7 +39,7 @@ class UserController extends Controller
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user)],
             'password' => ['sometimes', 'required', 'string', 'min:6'],
-            'role' => ['sometimes', 'required', Rule::in(['admin', 'teacher'])],
+            'role' => ['sometimes', 'required', Rule::in(['admin', 'teacher', 'student'])],
         ]);
 
         $user->update($data);
@@ -47,8 +47,14 @@ class UserController extends Controller
         return response()->json($user);
     }
 
-    public function destroy(User $user): JsonResponse
+    public function destroy(Request $request, User $user): JsonResponse
     {
+        if ($user->id === $request->user()->id) {
+            return response()->json([
+                'message' => 'You cannot delete your own account.',
+            ], 403);
+        }
+
         $user->delete();
 
         return response()->json(null, 204);

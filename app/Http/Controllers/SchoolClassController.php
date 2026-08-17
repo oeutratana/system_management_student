@@ -9,9 +9,15 @@ use Illuminate\Http\Request;
 
 class SchoolClassController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        return response()->json(SchoolClass::with(['department', 'teacher', 'students'])->latest()->get());
+        $query = SchoolClass::with(['department', 'teacher', 'students']);
+
+        if ($request->user()->isTeacher()) {
+            $query->where('teacher_id', $request->user()->id);
+        }
+
+        return response()->json($query->latest()->get());
     }
 
     public function store(Request $request): JsonResponse
@@ -29,8 +35,14 @@ class SchoolClassController extends Controller
         return response()->json(SchoolClass::create($data), 201);
     }
 
-    public function show(SchoolClass $class): JsonResponse
+    public function show(Request $request, SchoolClass $class): JsonResponse
     {
+        if ($request->user()->isTeacher() && $class->teacher_id !== $request->user()->id) {
+            return response()->json([
+                'message' => 'You do not have permission to access this class.',
+            ], 403);
+        }
+
         return response()->json($class->load(['department', 'teacher', 'students']));
     }
 

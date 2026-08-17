@@ -12,8 +12,10 @@ use App\Http\Controllers\FeeController;
 use App\Http\Controllers\GradeController;
 use App\Http\Controllers\ParentController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SchoolClassController;
 use App\Http\Controllers\StudentController;
+use App\Http\Controllers\StudentPortalController;
 use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -25,120 +27,148 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Authentication
-Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
 /*
 |--------------------------------------------------------------------------
-| Protected API
+| Authenticated API
 |--------------------------------------------------------------------------
 */
 
 Route::middleware('auth:sanctum')->group(function () {
 
-    // Authentication
+    // Profile
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    // Dashboard
-    Route::get('/dashboard', [DashboardController::class, 'index']);
+    // Announcements - every role that has view_announcements can read;
+    // creating/editing requires manage_announcements (admin only).
+    Route::get('/announcements', [AnnouncementController::class, 'index'])->middleware('permission:view_announcements');
+    Route::get('/announcements/{announcement}', [AnnouncementController::class, 'show'])->middleware('permission:view_announcements');
+    Route::post('/announcements', [AnnouncementController::class, 'store'])->middleware('permission:manage_announcements');
+    Route::put('/announcements/{announcement}', [AnnouncementController::class, 'update'])->middleware('permission:manage_announcements');
+    Route::delete('/announcements/{announcement}', [AnnouncementController::class, 'destroy'])->middleware('permission:manage_announcements');
 
-    // Users
-    Route::get('/users', [UserController::class, 'index']);
-    Route::post('/users', [UserController::class, 'store']);
-    Route::get('/users/{id}', [UserController::class, 'show']);
-    Route::put('/users/{id}', [UserController::class, 'update']);
-    Route::delete('/users/{id}', [UserController::class, 'destroy']);
+    // Student portal - students only, always scoped to their own data
+    Route::prefix('student')->middleware('role:student')->group(function () {
+        Route::get('class', [StudentPortalController::class, 'myClass']);
+        Route::get('courses', [StudentPortalController::class, 'myCourses']);
+        Route::get('exams', [StudentPortalController::class, 'myExams']);
+        Route::get('grades', [StudentPortalController::class, 'myGrades'])->middleware('permission:view_grades');
+        Route::get('attendance', [StudentPortalController::class, 'myAttendance'])->middleware('permission:view_attendance');
+        Route::get('fees', [StudentPortalController::class, 'myFees'])->middleware('permission:view_fees');
+        Route::get('payments', [StudentPortalController::class, 'myPayments'])->middleware('permission:view_payments');
+        Route::get('announcements', [StudentPortalController::class, 'myAnnouncements'])->middleware('permission:view_announcements');
+    });
 
-    // Students
-    Route::get('/students', [StudentController::class, 'index']);
-    Route::post('/students', [StudentController::class, 'store']);
-    Route::get('/students/{id}', [StudentController::class, 'show']);
-    Route::put('/students/{id}', [StudentController::class, 'update']);
-    Route::delete('/students/{id}', [StudentController::class, 'destroy']);
+    // Admin + Teacher
+    Route::middleware('role:admin,teacher')->group(function () {
 
-    // Teachers
-    Route::get('/teachers', [TeacherController::class, 'index']);
-    Route::post('/teachers', [TeacherController::class, 'store']);
-    Route::get('/teachers/{id}', [TeacherController::class, 'show']);
-    Route::put('/teachers/{id}', [TeacherController::class, 'update']);
-    Route::delete('/teachers/{id}', [TeacherController::class, 'destroy']);
+        // View students, classes and courses (teachers are scoped in controllers)
+        Route::get('/students', [StudentController::class, 'index'])->middleware('permission:view_students');
+        Route::get('/students/{student}', [StudentController::class, 'show'])->middleware('permission:view_students');
+        Route::get('/classes', [SchoolClassController::class, 'index'])->middleware('permission:view_classes');
+        Route::get('/classes/{class}', [SchoolClassController::class, 'show'])->middleware('permission:view_classes');
+        Route::get('/courses', [CourseController::class, 'index'])->middleware('permission:view_courses');
+        Route::get('/courses/{course}', [CourseController::class, 'show'])->middleware('permission:view_courses');
 
-    // Parents
-    Route::get('/parents', [ParentController::class, 'index']);
-    Route::post('/parents', [ParentController::class, 'store']);
-    Route::get('/parents/{id}', [ParentController::class, 'show']);
-    Route::put('/parents/{id}', [ParentController::class, 'update']);
-    Route::delete('/parents/{id}', [ParentController::class, 'destroy']);
+        // Exams
+        Route::get('/exams', [ExamController::class, 'index'])->middleware('permission:manage_exams');
+        Route::post('/exams', [ExamController::class, 'store'])->middleware('permission:manage_exams');
+        Route::get('/exams/{exam}', [ExamController::class, 'show'])->middleware('permission:manage_exams');
+        Route::put('/exams/{exam}', [ExamController::class, 'update'])->middleware('permission:manage_exams');
+        Route::delete('/exams/{exam}', [ExamController::class, 'destroy'])->middleware('permission:manage_exams');
 
-    // Departments
-    Route::get('/departments', [DepartmentController::class, 'index']);
-    Route::post('/departments', [DepartmentController::class, 'store']);
-    Route::get('/departments/{id}', [DepartmentController::class, 'show']);
-    Route::put('/departments/{id}', [DepartmentController::class, 'update']);
-    Route::delete('/departments/{id}', [DepartmentController::class, 'destroy']);
+        // Grades
+        Route::get('/grades', [GradeController::class, 'index'])->middleware('permission:view_grades');
+        Route::post('/grades', [GradeController::class, 'store'])->middleware('permission:manage_grades');
+        Route::get('/grades/{grade}', [GradeController::class, 'show'])->middleware('permission:view_grades');
+        Route::put('/grades/{grade}', [GradeController::class, 'update'])->middleware('permission:manage_grades');
+        Route::delete('/grades/{grade}', [GradeController::class, 'destroy'])->middleware('permission:manage_grades');
 
-    // Classes
-    Route::get('/classes', [SchoolClassController::class, 'index']);
-    Route::post('/classes', [SchoolClassController::class, 'store']);
-    Route::get('/classes/{id}', [SchoolClassController::class, 'show']);
-    Route::put('/classes/{id}', [SchoolClassController::class, 'update']);
-    Route::delete('/classes/{id}', [SchoolClassController::class, 'destroy']);
+        // Attendance
+        Route::get('/attendances', [AttendanceController::class, 'index'])->middleware('permission:view_attendance');
+        Route::post('/attendances', [AttendanceController::class, 'store'])->middleware('permission:manage_attendance');
+        Route::get('/attendances/{attendance}', [AttendanceController::class, 'show'])->middleware('permission:view_attendance');
+        Route::put('/attendances/{attendance}', [AttendanceController::class, 'update'])->middleware('permission:manage_attendance');
+        Route::delete('/attendances/{attendance}', [AttendanceController::class, 'destroy'])->middleware('permission:manage_attendance');
 
-    // Courses
-    Route::get('/courses', [CourseController::class, 'index']);
-    Route::post('/courses', [CourseController::class, 'store']);
-    Route::get('/courses/{id}', [CourseController::class, 'show']);
-    Route::put('/courses/{id}', [CourseController::class, 'update']);
-    Route::delete('/courses/{id}', [CourseController::class, 'destroy']);
+        // Reports (limited for teachers, full for admins)
+        Route::get('/reports', [ReportController::class, 'index'])->middleware('permission:view_reports');
+    });
 
-    // Enrollments
-    Route::get('/enrollments', [EnrollmentController::class, 'index']);
-    Route::post('/enrollments', [EnrollmentController::class, 'store']);
-    Route::get('/enrollments/{id}', [EnrollmentController::class, 'show']);
-    Route::put('/enrollments/{id}', [EnrollmentController::class, 'update']);
-    Route::delete('/enrollments/{id}', [EnrollmentController::class, 'destroy']);
+    // Admin only
+    Route::middleware('role:admin')->group(function () {
 
-    // Grades
-    Route::get('/grades', [GradeController::class, 'index']);
-    Route::post('/grades', [GradeController::class, 'store']);
-    Route::get('/grades/{id}', [GradeController::class, 'show']);
-    Route::put('/grades/{id}', [GradeController::class, 'update']);
-    Route::delete('/grades/{id}', [GradeController::class, 'destroy']);
+        // User management (registration)
+        Route::post('/register', [AuthController::class, 'register'])->middleware('permission:manage_users');
 
-    // Attendances
-    Route::get('/attendances', [AttendanceController::class, 'index']);
-    Route::post('/attendances', [AttendanceController::class, 'store']);
-    Route::get('/attendances/{id}', [AttendanceController::class, 'show']);
-    Route::put('/attendances/{id}', [AttendanceController::class, 'update']);
-    Route::delete('/attendances/{id}', [AttendanceController::class, 'destroy']);
+        // Dashboard
+        Route::get('/dashboard', [DashboardController::class, 'index']);
 
-    // Exams
-    Route::get('/exams', [ExamController::class, 'index']);
-    Route::post('/exams', [ExamController::class, 'store']);
-    Route::get('/exams/{id}', [ExamController::class, 'show']);
-    Route::put('/exams/{id}', [ExamController::class, 'update']);
-    Route::delete('/exams/{id}', [ExamController::class, 'destroy']);
+        // Users
+        Route::get('/users', [UserController::class, 'index'])->middleware('permission:manage_users');
+        Route::post('/users', [UserController::class, 'store'])->middleware('permission:manage_users');
+        Route::get('/users/{user}', [UserController::class, 'show'])->middleware('permission:manage_users');
+        Route::put('/users/{user}', [UserController::class, 'update'])->middleware('permission:manage_users');
+        Route::delete('/users/{user}', [UserController::class, 'destroy'])->middleware('permission:manage_users');
 
-    // Fees
-    Route::get('/fees', [FeeController::class, 'index']);
-    Route::post('/fees', [FeeController::class, 'store']);
-    Route::get('/fees/{id}', [FeeController::class, 'show']);
-    Route::put('/fees/{id}', [FeeController::class, 'update']);
-    Route::delete('/fees/{id}', [FeeController::class, 'destroy']);
+        // Students (manage)
+        Route::post('/students', [StudentController::class, 'store'])->middleware('permission:manage_students');
+        Route::put('/students/{student}', [StudentController::class, 'update'])->middleware('permission:manage_students');
+        Route::delete('/students/{student}', [StudentController::class, 'destroy'])->middleware('permission:manage_students');
 
-    // Payments
-    Route::get('/payments', [PaymentController::class, 'index']);
-    Route::post('/payments', [PaymentController::class, 'store']);
-    Route::get('/payments/{id}', [PaymentController::class, 'show']);
-    Route::put('/payments/{id}', [PaymentController::class, 'update']);
-    Route::delete('/payments/{id}', [PaymentController::class, 'destroy']);
+        // Teachers
+        Route::get('/teachers', [TeacherController::class, 'index'])->middleware('permission:manage_teachers');
+        Route::post('/teachers', [TeacherController::class, 'store'])->middleware('permission:manage_teachers');
+        Route::get('/teachers/{teacher}', [TeacherController::class, 'show'])->middleware('permission:manage_teachers');
+        Route::put('/teachers/{teacher}', [TeacherController::class, 'update'])->middleware('permission:manage_teachers');
+        Route::delete('/teachers/{teacher}', [TeacherController::class, 'destroy'])->middleware('permission:manage_teachers');
 
-    // Announcements
-    Route::get('/announcements', [AnnouncementController::class, 'index']);
-    Route::post('/announcements', [AnnouncementController::class, 'store']);
-    Route::get('/announcements/{id}', [AnnouncementController::class, 'show']);
-    Route::put('/announcements/{id}', [AnnouncementController::class, 'update']);
-    Route::delete('/announcements/{id}', [AnnouncementController::class, 'destroy']);
+        // Parents
+        Route::get('/parents', [ParentController::class, 'index'])->middleware('permission:manage_parents');
+        Route::post('/parents', [ParentController::class, 'store'])->middleware('permission:manage_parents');
+        Route::get('/parents/{guardian}', [ParentController::class, 'show'])->middleware('permission:manage_parents');
+        Route::put('/parents/{guardian}', [ParentController::class, 'update'])->middleware('permission:manage_parents');
+        Route::delete('/parents/{guardian}', [ParentController::class, 'destroy'])->middleware('permission:manage_parents');
+
+        // Departments - admin only; no permission entity exists for them
+        Route::get('/departments', [DepartmentController::class, 'index']);
+        Route::post('/departments', [DepartmentController::class, 'store']);
+        Route::get('/departments/{department}', [DepartmentController::class, 'show']);
+        Route::put('/departments/{department}', [DepartmentController::class, 'update']);
+        Route::delete('/departments/{department}', [DepartmentController::class, 'destroy']);
+
+        // Classes (manage)
+        Route::post('/classes', [SchoolClassController::class, 'store'])->middleware('permission:manage_classes');
+        Route::put('/classes/{class}', [SchoolClassController::class, 'update'])->middleware('permission:manage_classes');
+        Route::delete('/classes/{class}', [SchoolClassController::class, 'destroy'])->middleware('permission:manage_classes');
+
+        // Courses (manage)
+        Route::post('/courses', [CourseController::class, 'store'])->middleware('permission:manage_courses');
+        Route::put('/courses/{course}', [CourseController::class, 'update'])->middleware('permission:manage_courses');
+        Route::delete('/courses/{course}', [CourseController::class, 'destroy'])->middleware('permission:manage_courses');
+
+        // Enrollments - admin only; no permission entity exists for them
+        Route::get('/enrollments', [EnrollmentController::class, 'index']);
+        Route::post('/enrollments', [EnrollmentController::class, 'store']);
+        Route::get('/enrollments/{enrollment}', [EnrollmentController::class, 'show']);
+        Route::put('/enrollments/{enrollment}', [EnrollmentController::class, 'update']);
+        Route::delete('/enrollments/{enrollment}', [EnrollmentController::class, 'destroy']);
+
+        // Fees
+        Route::get('/fees', [FeeController::class, 'index'])->middleware('permission:manage_fees');
+        Route::post('/fees', [FeeController::class, 'store'])->middleware('permission:manage_fees');
+        Route::get('/fees/{fee}', [FeeController::class, 'show'])->middleware('permission:manage_fees');
+        Route::put('/fees/{fee}', [FeeController::class, 'update'])->middleware('permission:manage_fees');
+        Route::delete('/fees/{fee}', [FeeController::class, 'destroy'])->middleware('permission:manage_fees');
+
+        // Payments
+        Route::get('/payments', [PaymentController::class, 'index'])->middleware('permission:manage_payments');
+        Route::post('/payments', [PaymentController::class, 'store'])->middleware('permission:manage_payments');
+        Route::get('/payments/{payment}', [PaymentController::class, 'show'])->middleware('permission:manage_payments');
+        Route::put('/payments/{payment}', [PaymentController::class, 'update'])->middleware('permission:manage_payments');
+        Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])->middleware('permission:manage_payments');
+    });
 
 });

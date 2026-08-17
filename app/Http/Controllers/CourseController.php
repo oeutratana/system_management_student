@@ -3,15 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Models\Course;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class CourseController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        return response()->json(Course::with(['department', 'enrollments'])->latest()->get());
+        $query = Course::with(['department', 'enrollments']);
+
+        if ($request->user()->isTeacher()) {
+            $query->where('department_id', $this->teacherDepartmentId($request->user()));
+        }
+
+        return response()->json($query->latest()->get());
     }
 
     public function store(Request $request): JsonResponse
@@ -27,8 +34,14 @@ class CourseController extends Controller
         return response()->json(Course::create($data), 201);
     }
 
-    public function show(Course $course): JsonResponse
+    public function show(Request $request, Course $course): JsonResponse
     {
+        if ($request->user()->isTeacher() && $course->department_id !== $this->teacherDepartmentId($request->user())) {
+            return response()->json([
+                'message' => 'You do not have permission to access this course.',
+            ], 403);
+        }
+
         return response()->json($course->load(['department', 'enrollments.student']));
     }
 
@@ -52,5 +65,10 @@ class CourseController extends Controller
         $course->delete();
 
         return response()->json(null, 204);
+    }
+
+    private function teacherDepartmentId(User $teacher): ?int
+    {
+        return $teacher->teacherProfile?->department_id;
     }
 }

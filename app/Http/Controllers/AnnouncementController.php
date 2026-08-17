@@ -9,9 +9,19 @@ use Illuminate\Validation\Rule;
 
 class AnnouncementController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        return response()->json(Announcement::with('author')->latest()->get());
+        $query = Announcement::with('author');
+
+        if ($request->user()->isStudent()) {
+            $query->whereIn('target_audience', ['All', 'Students']);
+        }
+
+        if ($request->user()->isTeacher()) {
+            $query->whereIn('target_audience', ['All', 'Teachers']);
+        }
+
+        return response()->json($query->latest()->get());
     }
 
     public function store(Request $request): JsonResponse
@@ -21,8 +31,9 @@ class AnnouncementController extends Controller
             'body' => ['required', 'string'],
             'target_audience' => ['required', Rule::in(['All', 'Students', 'Teachers', 'Parents'])],
             'publish_date' => ['required', 'date'],
-            'author_id' => ['nullable', 'exists:users,id'],
         ]);
+
+        $data['author_id'] = $request->user()->id;
 
         return response()->json(Announcement::create($data), 201);
     }
@@ -39,7 +50,6 @@ class AnnouncementController extends Controller
             'body' => ['sometimes', 'required', 'string'],
             'target_audience' => ['sometimes', 'required', Rule::in(['All', 'Students', 'Teachers', 'Parents'])],
             'publish_date' => ['sometimes', 'required', 'date'],
-            'author_id' => ['nullable', 'exists:users,id'],
         ]);
 
         $announcement->update($data);

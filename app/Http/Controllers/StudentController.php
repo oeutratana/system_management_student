@@ -3,15 +3,24 @@
 namespace App\Http\Controllers;
 
 use App\Models\Student;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class StudentController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        return response()->json(Student::with(['class', 'enrollments.course', 'enrollments.grade'])->latest()->get());
+        $query = Student::with(['class', 'enrollments.course', 'enrollments.grade']);
+
+        if ($request->user()->isTeacher()) {
+            $query->whereHas('class', function ($q) use ($request) {
+                $q->where('teacher_id', $request->user()->id);
+            });
+        }
+
+        return response()->json($query->latest()->get());
     }
 
     public function indexOrStore(Request $request): JsonResponse
@@ -28,6 +37,7 @@ class StudentController extends Controller
         $this->prepareDateOfBirth($request);
 
         $data = $request->validate([
+            'user_id' => ['nullable', 'exists:users,id'],
             'class_id' => ['required', 'exists:classes,id'],
             'student_code' => ['required', 'string', 'max:255', 'unique:students,student_code'],
             'first_name' => ['required', 'string', 'max:255'],
@@ -43,8 +53,14 @@ class StudentController extends Controller
         return response()->json(Student::create($data), 201);
     }
 
-    public function show(Student $student): JsonResponse
+    public function show(Request $request, Student $student): JsonResponse
     {
+        if ($request->user()->isTeacher() && ! $this->teacherOwnsStudent($request->user(), $student)) {
+            return response()->json([
+                'message' => 'You do not have permission to access this student.',
+            ], 403);
+        }
+
         return response()->json($student->load(['class', 'enrollments.course', 'enrollments.grade']));
     }
 
@@ -53,6 +69,7 @@ class StudentController extends Controller
         $this->prepareDateOfBirth($request);
 
         $data = $request->validate([
+            'user_id' => ['nullable', 'exists:users,id'],
             'class_id' => ['sometimes', 'required', 'exists:classes,id'],
             'student_code' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('students', 'student_code')->ignore($student)],
             'first_name' => ['sometimes', 'required', 'string', 'max:255'],
@@ -84,5 +101,10 @@ class StudentController extends Controller
                 'dob' => $request->input('date_of_birth'),
             ]);
         }
+    }
+
+    private function teacherOwnsStudent(User $teacher, Student $student): bool
+    {
+        return $student->class?->teacher_id === $teacher->id;
     }
 }
